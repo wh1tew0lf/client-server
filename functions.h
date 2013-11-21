@@ -16,7 +16,7 @@
 #define CRC_SIZE 32
 #define THREAD_COUNT 2
 #define TIMEOUT 3500
-#define RECV_DIR "/home/wh1/"
+#define RECV_DIR "~/"
 
 #define DATA_OK 1
 #define REPEAT 0
