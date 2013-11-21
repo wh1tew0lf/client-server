@@ -1,0 +1,6 @@
+;; Object C-client-server
+;; EDE Project Files are auto generated: Do Not Edit
+(ede-proj-project "C-client-server"
+  :file "Project.ede"
+  :name "C-client-server"
+  :targets nil)
