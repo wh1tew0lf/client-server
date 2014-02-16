@@ -11,162 +11,76 @@
 #include <pthread.h>
 #include <signal.h>
 #include <errno.h>
-#include "functions.h"
+#include <fcntl.h>
+#include "errmacro.h"
+#include "headers.h"
 
-struct thread_conf {
-    int id;
-    int client_sockfd;
-    int iret;
-    pthread_t thread;
-    pthread_mutex_t lock;
-    int status;
-};
+#define DEF_PORT 9378
+#define DEF_THREAD_CNT 2
+#define DATA_SIZE 256
 
 int server_run = 1;
 
-void server(int port);
+void server(int port, int tcnt);
+void *client_thread(void *ptr);
+void sig_handler(int signum);
 
-void *print_message_function(void *ptr);
-
-void sig_handler(int signum) {
-    printf("I get %d signal, I will stop\n", signum);
-    //signal(signum, SIG_DFL);
-    //exit(3);
-    server_run = 0;
-}
 
 int main(int argc, char **argv) {
-    int port = argc > 1 ? atoi(argv[1]) : 9378;
+    int port = argc > 1 ? atoi(argv[1]) : DEF_PORT;
+    int tcnt = argc > 2 ? atoi(argv[2]) : DEF_THREAD_CNT;
     if (SIG_ERR == signal(SIGINT, sig_handler)) {
-        int myerr = errno;
-        printf("Server: Set sock opt: %s [%d]\n", strerror(myerr), myerr);
+        MY_ERROR1("Init sighandler");
         exit(5);
     }
-    server(port);
+    server(port, tcnt);
     return EXIT_SUCCESS;
 }
 
-void *print_message_function(void *ptr) {
-    struct thread_conf *my_conf = (struct thread_conf *) ptr;
-    int sockfd = my_conf->client_sockfd;
-    int flag = 1;
-    if (setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int))) {
-        int myerr = errno;
-        printf("Server: Thread #%d: Set sock opt: %s [%d]\n", my_conf->id, strerror(myerr), myerr);
-    }
-
-    int cnt = 0;
-    if (!recv_send(sockfd, (void*) &cnt, sizeof(cnt))) {
-        int i = 0;
-        for(i = 0; i < cnt; ++i) {
-            //Receive file #i
-            char buf[DATA_SIZE];
-            memset(buf, 0, DATA_SIZE);
-            if (!recv_send(sockfd, (void*) buf, DATA_SIZE)) {
-                char filename[DATA_SIZE] = RECV_DIR;
-                strcat(filename, buf);
-                FILE *fp = fopen(filename, "w");
-                if (fp != NULL) {
-                    int sz = 0;
-                    if (!recv_send(sockfd, (void*) &sz, sizeof(sz))) {
-                        int break_recv = 0;
-                        for(;sz > 0; sz -= DATA_SIZE) {
-                            int portion = MIN(DATA_SIZE, sz);
-                            printf("Recive %d portion of file\n", portion);
-
-                            if (recv_send(sockfd, (void*) buf, portion)) {
-                                fclose(fp);
-                                break_recv = 1;
-                                break;
-                            }
-                            
-                            if (portion != fwrite(buf, sizeof(char), portion, fp)) {
-                                fclose(fp);
-                                break_recv = 1;
-                                break;
-                            }
-                        }
-                        if (break_recv) {
-                            break;
-                        }
-                    } else {
-                        fclose(fp);
-                        break;
-                    }
-                } else {
-                    break;
-                }
-                fclose(fp);
-            } else {
-                break;
-            }
-        }
-    }
-
-    flag = 0;
-	if (setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int))) {
-        int myerr = errno;
-        printf("Server: Thread #%d: Set sock opt: %s [%d]\n", my_conf->id, strerror(myerr), myerr);
-    }
-
-	if (close(sockfd)) {
-        int myerr = errno;
-        printf("Server: Thread #%d: Close socket: %s [%d]\n", my_conf->id, strerror(myerr), myerr);
-    }
-
-    pthread_mutex_lock(&(my_conf->lock));
-    my_conf->status = 0;
-    pthread_mutex_unlock(&(my_conf->lock));
+void sig_handler(int signum) {
+    printf("I get %d signal, I will stop\n", signum);
+    server_run = 0;
 }
 
-
-void server(int port) {
-    int server_sockfd = socket(AF_INET, SOCK_STREAM, 0);
+void server(int port, int tcnt) {
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in server_address;
     
     server_address.sin_family = AF_INET;
     server_address.sin_addr.s_addr = htonl(INADDR_ANY);
     server_address.sin_port = htons(port);
  
-    if (bind(server_sockfd, (struct sockaddr *) &server_address, sizeof(server_address))) {
-        int myerr = errno;
-        printf("Server: Bind: %s [%d]\n", strerror(myerr), myerr);
+    if (bind(sockfd, (struct sockaddr *) &server_address, sizeof(server_address))) {
+        MY_ERROR1("Bind");
         exit(2);
     } else {
-        printf("bind is ok\n");
+        printf("Bind is ok\n");
     }
 
-    int flag = 1;
-    if (setsockopt(server_sockfd, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int))) {
-        int myerr = errno;
-        printf("Server: Set sock opt: %s [%d]\n", strerror(myerr), myerr);
-    }
-
-    if (listen(server_sockfd, 5)) {
-        int myerr = errno;
-        printf("Server: Listen: %s [%d]\n", strerror(myerr), myerr);
+    if (listen(sockfd, 5)) {
+        MY_ERROR1("Listen");
         exit(3);
     } else {
-        printf("listen is ok\n");
+        printf("Listen is ok\n");
     }
 
-    struct thread_conf threads[THREAD_COUNT];
+    struct thread_conf *threads = (struct thread_conf *) malloc(tcnt * sizeof(struct thread_conf));
     int i = 0;
-    for(i = 0; i < THREAD_COUNT; ++i) {
+    for(i = 0; i < tcnt; ++i) {
         threads[i].status = -1;
         pthread_mutex_init(&(threads[i].lock), NULL);
     }
     
-    for(i = 0; (i < THREAD_COUNT) && server_run; i = (i + 1) % THREAD_COUNT) {
+    for(i = 0; (i < tcnt) && server_run; i = (i + 1) % tcnt) {
         pthread_mutex_lock(&(threads[i].lock));
-        if (!threads[i].status) { //if tread finish
+        if (!threads[i].status) {                                      //if tread finish
             pthread_join(threads[i].thread, NULL);
             printf("Thread #%d returns: %d\n", i, threads[i].iret);
             pthread_mutex_unlock(&(threads[i].lock));
-        } else if (threads[i].status > 0) { //if tread still busy
+        } else if (threads[i].status > 0) {                            //if tread still busy
             pthread_mutex_unlock(&(threads[i].lock));
             continue;
-        } else { // if thread only initialised
+        } else {                                                       // if thread only initialised
             pthread_mutex_unlock(&(threads[i].lock));
         }
 
@@ -175,26 +89,75 @@ void server(int port) {
         struct sockaddr_in client_address;
         int client_len = sizeof(client_address);
 
-        threads[i].client_sockfd = accept(server_sockfd, (struct sockaddr *) &client_address, &client_len);
+        threads[i].sockfd = accept(sockfd, (struct sockaddr *) &client_address, &client_len);
 
         printf("server crating thread #%d\n", i);
         threads[i].status = 1;
-        threads[i].iret = pthread_create(&(threads[i].thread), NULL, print_message_function, (void*) &(threads[i]));
+        threads[i].iret = pthread_create(&(threads[i].thread), NULL, client_thread, (void*) &(threads[i]));
     }
 
-    for(i = 0; i < THREAD_COUNT; ++i) {
+    for(i = 0; i < tcnt; ++i) {
         pthread_join(threads[i].thread, NULL);
         printf("Thread #%d returns: %d\n", i, threads[i].iret);
     }
 
-    flag = 0;
-    if (setsockopt(server_sockfd, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int))) {
-        int myerr = errno;
-        printf("Server: Set sock opt: %s [%d]\n", strerror(myerr), myerr);
-    }
-
-    if (close(server_sockfd)) {
-        int myerr = errno;
-        printf("Server: close server socket: %s [%d]\n", strerror(myerr), myerr);
+    if (close(sockfd)) {
+        MY_ERROR1("Close server socket");
     }
 }
+
+void *client_thread(void *ptr) {
+    struct thread_conf *my_conf = (struct thread_conf *) ptr;
+    int sockfd = my_conf->sockfd;
+
+    char filename[] = "/home/wh1/1.avi";
+    
+    off64_t size = -1;
+    FILE *fs = fopen(filename, "r");
+    if (fs != NULL) {
+        fseek(fs, 0L, SEEK_END);
+        size = ftello64(fs);
+        fseek(fs, 0L, SEEK_SET);
+
+        printf("File size: %ld[%ld]\n", size, sizeof(size));
+
+        send(sockfd, &size, sizeof(size), 0);
+        
+        for(;size > 0; size -= MIN(DATA_SIZE, size)) {
+            char buf[DATA_SIZE];
+            memset(buf, 0, DATA_SIZE);
+            unsigned int portion = MIN(DATA_SIZE, size);
+            
+            //printf("Send %d portion of file\n", portion);
+                             
+            if (portion != fread(buf, sizeof(char), portion, fs)) {
+                MY_ERROR1("Can't read portion of file");
+                break;
+            }
+            
+            int rsnd = send(sockfd, (void*) buf, portion, 0);
+            
+            if (portion != rsnd) {
+                MY_ERROR1("Can't send portion of file");
+                break;
+            }
+        }
+    
+        if (fclose(fs)) {
+            MY_ERROR1("Can't send portion of file");
+        }
+    } else {
+        MY_ERROR1("Open file");
+    }
+    
+	if (close(sockfd)) {
+        MY_ERROR1("Close socket");
+    }
+
+    pthread_mutex_lock(&(my_conf->lock));
+    my_conf->status = 0;
+    pthread_mutex_unlock(&(my_conf->lock));
+}
+
+
+

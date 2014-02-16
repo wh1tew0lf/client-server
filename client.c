@@ -8,9 +8,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include "functions.h"
- 
-void client(char *ip, int port, char **files, int files_cnt);
+
+void client(char *ip, int port);
+
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#define DATA_SIZE 256
  
 int main(int argc, char **argv) {
     char ip[16] = "192.168.0.100";
@@ -19,11 +21,11 @@ int main(int argc, char **argv) {
         strcpy(ip, argv[1]);
     }
     int port = argc > 2 ? atoi(argv[2]) : 9378;
-    client(ip, port, &(argv[3]), argc - 3);
+    client(ip, port);
     return EXIT_SUCCESS;
 }
  
-void client(char *ip, int port, char **files, int files_cnt) {
+void client(char *ip, int port) {
     int sockfd = socket (AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in address;
     address.sin_family = AF_INET;
@@ -36,69 +38,48 @@ void client(char *ip, int port, char **files, int files_cnt) {
         exit(2);
     }
 
-    int flag = 1;
-    if (setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int))) {
-        int myerr = errno;
-        printf("Client: Set sock opt: %s [%d]\n", strerror(myerr), myerr);
-    }
-
-    if (!send_recv(sockfd, (void*) &files_cnt, sizeof(files_cnt))) {
-        int i = 0;
-        for(i = 0; i < files_cnt; ++i) {
-            //Send file #i
+    char filename[] = "/home/wh1/2.avi";
+    
+    off64_t size = -1;
+    FILE *fs = fopen(filename, "w");
+    if (fs != NULL) {
+        recv(sockfd, &size, sizeof(size), MSG_WAITALL);
+        printf("File size: %lld[%d]\n", size, sizeof(size));
+        
+        for(;size > 0; size -= MIN(DATA_SIZE, size)) {
             char buf[DATA_SIZE];
             memset(buf, 0, DATA_SIZE);
-            strcpy(buf, files[i]);
-            printf("Send file #%d '%s'\n", i, buf);
-            if (!send_recv(sockfd, (void*) buf, DATA_SIZE)) {
-                
-                FILE *fp = fopen(files[i], "r");
-                if (fp != NULL) {
-                    fseek(fp, 0L, SEEK_END);
-                    int sz = ftell(fp);
-                    fseek(fp, 0L, SEEK_SET);
-                    
-                    if (!send_recv(sockfd, (void*) &sz, sizeof(sz))) {
-                        int break_send = 0;
-                        for(;sz > 0; sz -= DATA_SIZE) {
-                            int portion = MIN(DATA_SIZE, sz);
-                            printf("Send %d portion of file\n", portion);
-                            
-                             
-                            if (portion != fread(buf, sizeof(char), portion, fp)) {
-                                fclose(fp);
-                                break_send = 1;
-                                break;
-                            }
+            unsigned int portion = MIN(DATA_SIZE, size);
+            
+            printf("Recv %d portion of file\n", portion);
 
-                            if (send_recv(sockfd, (void*) buf, portion)) {
-                                fclose(fp);
-                                break_send = 1;
-                                break;
-                            }
-                        }
-                        if (break_send) {
-                            break;
-                        }
-                    } else {
-                        fclose(fp);
-                        break;
-                    }
-                    fclose(fp);
-                } else {
-                    break;
-                }
-            } else {
+            int rsz = recv(sockfd, (void*) buf, portion, MSG_WAITALL);
+            
+            if (portion != rsz) {
+                int myerr = errno;
+                printf("Can't recv portion of file %d: %s [%d]\n", rsz, strerror(myerr), myerr);
                 break;
             }
+                             
+            if (portion != fwrite(buf, sizeof(char), portion, fs)) {
+                int myerr = errno;
+                printf("Can't write portion of file: %s [%d]\n", strerror(myerr), myerr);
+                break;
+            }
+            
         }
-    }
-  
-	flag = 0;
-    if (setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int))) {
+    
+        if (fclose(fs)) {
+            int myerr = errno;
+            printf("Server: close file file: %s [%d]\n", strerror(myerr), myerr);
+        }
+    } else {
         int myerr = errno;
-        printf("Client: Set sock opt: %s [%d]\n", strerror(myerr), myerr);
+        printf("Server: open file: %s [%d]\n", strerror(myerr), myerr);
     }
+
+    send(sockfd, &size, sizeof(size), 0);
+    printf("File size sended: %lld[%d]\n", size, sizeof(size));
 
     if (close(sockfd)) {
         int myerr = errno;

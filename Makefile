@@ -1,5 +1,5 @@
 CC = gcc
-BASICOPTS = -g
+BASICOPTS = -g -D_LARGEFILE64_SOURCE
 CFLAGS = -O2 $(BASICOPTS)
 OFLAGS = -c -Wall -Wextra
 LIBS = -lm
