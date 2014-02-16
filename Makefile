@@ -7,7 +7,7 @@ LIBS = -lm
 OBJECTSDIR=obj
 TARGETDIR=bin
 
-OBJECTS = $(OBJECTSDIR)/functions.o
+OBJECTS = 
 
 all: clean $(TARGETDIR)/server $(TARGETDIR)/client
 
@@ -17,14 +17,13 @@ $(TARGETDIR)/server: $(TARGETDIR) $(OBJECTS)
 $(TARGETDIR)/client: $(TARGETDIR) $(OBJECTS)
 	$(CC) $(CFLAGS) -o $@ client.c $(OBJECTS)
 
-$(OBJECTSDIR)/functions.o: $(OBJECTSDIR)
-	$(CC) $(OFLAGS) -o $@ functions.c $(LIBS)
+#$(OBJECTSDIR)/functions.o: $(OBJECTSDIR)
+#	$(CC) $(OFLAGS) -o $@ functions.c $(LIBS)
 
 clean:
 	rm -f \
 		./$(TARGETDIR)/server \
-		./$(TARGETDIR)/client \
-		./$(OBJECTSDIR)/functions.o
+		./$(TARGETDIR)/client
 
 $(TARGETDIR):
 	mkdir -p $(TARGETDIR)

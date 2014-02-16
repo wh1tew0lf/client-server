@@ -8,14 +8,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include "headers.h"
 
 void client(char *ip, int port);
-
-#define MIN(a,b) (((a)<(b))?(a):(b))
-#define DATA_SIZE 256
  
 int main(int argc, char **argv) {
-    char ip[16] = "192.168.0.100";
+    char ip[16] = "127.0.0.1";
     if (argc > 1) {
         memset(ip, 0, 16);
         strcpy(ip, argv[1]);
@@ -44,7 +42,6 @@ void client(char *ip, int port) {
     FILE *fs = fopen(filename, "w");
     if (fs != NULL) {
         recv(sockfd, &size, sizeof(size), MSG_WAITALL);
-        printf("File size: %lld[%d]\n", size, sizeof(size));
         
         for(;size > 0; size -= MIN(DATA_SIZE, size)) {
             char buf[DATA_SIZE];
@@ -79,7 +76,6 @@ void client(char *ip, int port) {
     }
 
     send(sockfd, &size, sizeof(size), 0);
-    printf("File size sended: %lld[%d]\n", size, sizeof(size));
 
     if (close(sockfd)) {
         int myerr = errno;

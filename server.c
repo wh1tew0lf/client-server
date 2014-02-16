@@ -15,10 +15,6 @@
 #include "errmacro.h"
 #include "headers.h"
 
-#define DEF_PORT 9378
-#define DEF_THREAD_CNT 2
-#define DATA_SIZE 256
-
 int server_run = 1;
 
 void server(int port, int tcnt);
