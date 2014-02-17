@@ -6,6 +6,9 @@
 #define DEF_THREAD_CNT 2
 #define DATA_SIZE 256
 
+#define SEND_FILENAME "~/1.avi"
+#define RECV_FILENAME "~/2.avi"
+
 #define MIN(a,b) (((a)<(b))?(a):(b))
 
 struct thread_conf {

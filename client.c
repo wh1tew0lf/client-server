@@ -36,7 +36,7 @@ void client(char *ip, int port) {
         exit(2);
     }
 
-    char filename[] = "/home/wh1/2.avi";
+    char filename[] = RECV_FILENAME;
     
     off64_t size = -1;
     FILE *fs = fopen(filename, "w");
@@ -48,7 +48,7 @@ void client(char *ip, int port) {
             memset(buf, 0, DATA_SIZE);
             unsigned int portion = MIN(DATA_SIZE, size);
             
-            printf("Recv %d portion of file\n", portion);
+            //printf("Recv %d portion of file\n", portion);
 
             int rsz = recv(sockfd, (void*) buf, portion, MSG_WAITALL);
             

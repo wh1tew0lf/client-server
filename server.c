@@ -106,7 +106,7 @@ void *client_thread(void *ptr) {
     struct thread_conf *my_conf = (struct thread_conf *) ptr;
     int sockfd = my_conf->sockfd;
 
-    char filename[] = "/home/wh1/1.avi";
+    char filename[] = SEND_FILENAME;
     
     off64_t size = -1;
     FILE *fs = fopen(filename, "r");
