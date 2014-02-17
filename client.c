@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include "errmacro.h"
 #include "headers.h"
 
 void client(char *ip, int port);
@@ -22,6 +23,12 @@ int main(int argc, char **argv) {
     client(ip, port);
     return EXIT_SUCCESS;
 }
+
+void pack_heart_comm(char * buf) {
+    memset(buf, 0, COMM_BUF_LEN);
+    buf[0] = COMM_HEART_BEAT;
+}
+
  
 void client(char *ip, int port) {
     int sockfd = socket (AF_INET, SOCK_STREAM, 0);
@@ -36,7 +43,21 @@ void client(char *ip, int port) {
         exit(2);
     }
 
-    char filename[] = RECV_FILENAME;
+    char com[COMM_BUF_LEN];
+    int i = 0;
+    for(i = 0; i < 10; ++i) {
+        pack_heart_comm(com);
+        int rsnd = send(sockfd, (void*) com, COMM_BUF_LEN, 0);
+            
+        if (COMM_BUF_LEN != rsnd) {
+            MY_ERROR1("Can't send command");
+            break;
+        }
+        sleep(3);
+    }
+
+
+    /*char filename[] = RECV_FILENAME;
     
     off64_t size = -1;
     FILE *fs = fopen(filename, "w");
@@ -76,7 +97,7 @@ void client(char *ip, int port) {
     }
 
     send(sockfd, &size, sizeof(size), 0);
-
+    */
     if (close(sockfd)) {
         int myerr = errno;
         printf("Client: close server socket: %s [%d]\n", strerror(myerr), myerr);

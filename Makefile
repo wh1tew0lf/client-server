@@ -9,13 +9,16 @@ TARGETDIR=bin
 
 OBJECTS = 
 
-all: clean $(TARGETDIR)/server $(TARGETDIR)/client
+all: clean $(TARGETDIR)/server $(TARGETDIR)/client $(TARGETDIR)/test
 
 $(TARGETDIR)/server: $(TARGETDIR) $(OBJECTS)
 	$(CC) $(CFLAGS) -o $@ server.c $(OBJECTS) -pthread
 
 $(TARGETDIR)/client: $(TARGETDIR) $(OBJECTS)
 	$(CC) $(CFLAGS) -o $@ client.c $(OBJECTS)
+
+$(TARGETDIR)/test: $(TARGETDIR) $(OBJECTS)
+	$(CC) $(CFLAGS) -o $@ test.c $(OBJECTS)
 
 #$(OBJECTSDIR)/functions.o: $(OBJECTSDIR)
 #	$(CC) $(OFLAGS) -o $@ functions.c $(LIBS)

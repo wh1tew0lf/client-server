@@ -21,6 +21,19 @@ void server(int port, int tcnt);
 void *client_thread(void *ptr);
 void sig_handler(int signum);
 
+void pack_heart_comm(char * buf);
+void pack_set_dev_comm(char * buf);
+void pack_get_dev_comm(char * buf);
+void pack_set_over_comm(char * buf);
+void pack_get_over_comm(char * buf);
+
+void unpack_heart_comm(char * buf);
+void unpack_set_dev_comm(char * buf);
+void unpack_get_dev_comm(char * buf);
+void unpack_set_over_comm(char * buf);
+void unpack_get_over_comm(char * buf);
+
+
 
 int main(int argc, char **argv) {
     int port = argc > 1 ? atoi(argv[1]) : DEF_PORT;
@@ -82,9 +95,28 @@ void server(int port, int tcnt) {
 
         printf("server waiting for connection\n");
         
+        int pret = 0;
+        while(server_run) {
+            struct pollfd serv;
+            serv.fd = sockfd;
+            serv.events = POLLIN;
+            pret = poll(&serv, 1, SRV_TIMEOUT);
+
+            if (-1 == pret) {
+                MY_ERROR1("Poll");
+                break;
+            } else if(0 == pret) { //timeout
+                continue;
+            } else {
+                break;
+            }
+        }
+        if ((-1 == pret) || !server_run) {
+            break;
+        }
+
         struct sockaddr_in client_address;
         int client_len = sizeof(client_address);
-
         threads[i].sockfd = accept(sockfd, (struct sockaddr *) &client_address, &client_len);
 
         printf("server crating thread #%d\n", i);
@@ -106,7 +138,57 @@ void *client_thread(void *ptr) {
     struct thread_conf *my_conf = (struct thread_conf *) ptr;
     int sockfd = my_conf->sockfd;
 
-    char filename[] = SEND_FILENAME;
+    int command_loop = 1;
+    int skip = 0;
+
+    while(command_loop && !skip) {
+        struct pollfd client;
+        client.fd = sockfd;
+        client.events = POLLIN;
+
+        int ret = poll(&client, 1, TIMEOUT);
+        int parse_comm = 0;
+        char com[COMM_BUF_LEN];
+        memset(com, 0, COMM_BUF_LEN);
+        
+        if (-1 == ret) {
+            MY_ERROR1("Poll");
+            skip = 1;
+        } else if(0 == ret) {
+            continue;
+        } else {
+            int bytes = 0;
+            if (client.revents & POLLIN) {
+                bytes = recv(sockfd, com, COMM_BUF_LEN, MSG_WAITALL);
+                if (-1 == bytes) {
+                    MY_ERROR1("Recv");
+                    skip = 2;
+                } else if (bytes < COMM_BUF_LEN) { 
+                    MY_ERROR1("Recv, not full data");
+                    skip = 3;
+                } else {
+                    //All nice
+                    parse_comm = 1;
+                }
+            }
+            ret = bytes;
+        }
+
+        if (parse_comm) {
+            switch(com[0]) {
+            case COMM_HEART_BEAT:
+                printf("Headbeat command\n");
+                break;
+            default:
+                MY_ERROR2("Incorrect command");
+                skip = 1;
+            } //switch(com[0])
+        } //if (parse_comm)
+    } //while(command_loop && !skip)
+
+
+
+    /*char filename[] = SEND_FILENAME;
     
     off64_t size = -1;
     FILE *fs = fopen(filename, "r");
@@ -144,7 +226,7 @@ void *client_thread(void *ptr) {
         }
     } else {
         MY_ERROR1("Open file");
-    }
+    }*/
     
 	if (close(sockfd)) {
         MY_ERROR1("Close socket");
@@ -153,7 +235,11 @@ void *client_thread(void *ptr) {
     pthread_mutex_lock(&(my_conf->lock));
     my_conf->status = 0;
     pthread_mutex_unlock(&(my_conf->lock));
+    pthread_exit(&skip);
 }
 
-
+void pack_heart_comm(char * buf) {
+    memset(buf, 0, COMM_BUF_LEN);
+    buf[0] = COMM_HEART_BEAT;
+}
 
