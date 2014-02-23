@@ -17,6 +17,7 @@
 
 #define SEND_FILENAME "/home/wh1/1.pdf"
 #define RECV_FILENAME "/home/wh1/2.pdf"
+#define RECV_FILENAME2 "/home/wh1/3.pdf"
 
 #define SERVER_POLL_TIMEOUT 3500
 

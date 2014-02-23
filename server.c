@@ -115,6 +115,7 @@ void server(int port, int tcnt) {
     for(i = 0; i < tcnt; ++i) {
         pthread_join(threads[i].thread, NULL);
         printf("Thread #%d returns: %d\n", i, threads[i].iret);
+        pthread_mutex_destroy(&(threads[i].lock));
     }
 
     if (close(sockfd)) {
@@ -129,12 +130,22 @@ void *client_thread(void *ptr) {
     char buf[DATA_SIZE];
     int rbytes = 0;
     int status = 1; //status of eval command
+    int i = 0;
     while(status && ((rbytes = recv(sockfd,(void*) buf, DATA_SIZE, MSG_WAITALL)) == DATA_SIZE)) {
         switch(get_command(buf)) {
         case C_HEARTBEAT:
             memset(buf, 0, DATA_SIZE);
-            status = DATA_SIZE == send(sockfd, (void*) buf, DATA_SIZE, 0);
             printf("Get heart beat, status: %d\n", status);
+            if (++i % 5) {
+                status = DATA_SIZE == send(sockfd, (void*) buf, DATA_SIZE, 0);
+            } else {
+                set_command(buf, C_SEND_FILE);
+                status = DATA_SIZE == send(sockfd, (void*) buf, DATA_SIZE, 0);
+                if (status) {
+                    status = EXIT_SUCCESS == n_send_file(SEND_FILENAME, sockfd);
+                }
+            }
+            
             break;
         case C_SEND_FILE:
             status = EXIT_SUCCESS == n_recv_file(RECV_FILENAME, sockfd);

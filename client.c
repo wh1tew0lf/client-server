@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include "headers.h"
 #include "network.h"
 
 void client(char *ip, int port);
@@ -53,7 +52,18 @@ void client(char *ip, int port) {
             puts("Recv error");
             break;
         }
-        printf("Received %d\n", buf[0]);
+
+        switch(get_command(buf)) {
+        case C_HEARTBEAT:
+            printf("Received %d\n", buf[0]);
+            break;
+        case C_SEND_FILE:
+            if (EXIT_SUCCESS != n_recv_file(RECV_FILENAME2, sockfd)) {
+                puts("FILE RECEIVE ERROR");
+            }
+            break;
+        }
+
         sleep(1);
     }
 
