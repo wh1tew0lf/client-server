@@ -9,6 +9,7 @@
 #include <string.h>
 #include <errno.h>
 #include "headers.h"
+#include "network.h"
 
 void client(char *ip, int port);
  
@@ -53,72 +54,25 @@ void client(char *ip, int port) {
             break;
         }
         printf("Received %d\n", buf[0]);
-        sleep(3);
-    }
-    
-    if (close(sockfd)) {
-        int myerr = errno;
-        printf("Client: close server socket: %s [%d]\n", strerror(myerr), myerr);
-    }
-}
- 
-/*void client(char *ip, int port) {
-    int sockfd = socket (AF_INET, SOCK_STREAM, 0);
-    struct sockaddr_in address;
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr= inet_addr(ip);
-    address.sin_port = htons(port);
-    
-    if (connect(sockfd, (struct sockaddr *) &address, sizeof(address))) {
-        int myerr = errno;
-        printf("Client: Connect: %s [%d]\n", strerror(myerr), myerr);
-        exit(2);
+        sleep(1);
     }
 
-    char filename[] = RECV_FILENAME;
-    
-    off64_t size = -1;
-    FILE *fs = fopen(filename, "w");
-    if (fs != NULL) {
-        recv(sockfd, &size, sizeof(size), MSG_WAITALL);
-        
-        for(;size > 0; size -= MIN(DATA_SIZE, size)) {
-            char buf[DATA_SIZE];
-            memset(buf, 0, DATA_SIZE);
-            unsigned int portion = MIN(DATA_SIZE, size);
-            
-            //printf("Recv %d portion of file\n", portion);
-
-            int rsz = recv(sockfd, (void*) buf, portion, MSG_WAITALL);
-            
-            if (portion != rsz) {
-                int myerr = errno;
-                printf("Can't recv portion of file %d: %s [%d]\n", rsz, strerror(myerr), myerr);
-                break;
-            }
-                             
-            if (portion != fwrite(buf, sizeof(char), portion, fs)) {
-                int myerr = errno;
-                printf("Can't write portion of file: %s [%d]\n", strerror(myerr), myerr);
-                break;
-            }
-            
-        }
-    
-        if (fclose(fs)) {
-            int myerr = errno;
-            printf("Server: close file file: %s [%d]\n", strerror(myerr), myerr);
-        }
+    memset(buf, 0, 256);
+    set_command(buf, C_SEND_FILE);
+    int sbytes = send(sockfd, (void*) buf, 256, 0);
+    if (sbytes != 256) {
+        puts("Send error");
     } else {
-        int myerr = errno;
-        printf("Server: open file: %s [%d]\n", strerror(myerr), myerr);
+        if (EXIT_SUCCESS == n_send_file(SEND_FILENAME, sockfd)) {
+            puts("FILE SENDED");
+        } else {
+            puts("FILE SEND ERROR!");
+        }
     }
-
-    send(sockfd, &size, sizeof(size), 0);
-
+    
+    
     if (close(sockfd)) {
         int myerr = errno;
         printf("Client: close server socket: %s [%d]\n", strerror(myerr), myerr);
     }
 }
-*/

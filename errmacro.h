@@ -2,6 +2,8 @@
 #ifndef MY_ERRORS_H
 #define MY_ERRORS_H 
 
+#include <errno.h>
+
 #ifndef MSTDERR
 #define MSTDERR stderr
 #endif

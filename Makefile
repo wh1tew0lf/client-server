@@ -1,13 +1,13 @@
 CC = gcc
-BASICOPTS = -g -D_LARGEFILE64_SOURCE
+BASICOPTS = -g
 CFLAGS = -O2 $(BASICOPTS)
-OFLAGS = -c -Wall -Wextra
+OFLAGS = -c -Wall -Wextra -D_LARGEFILE64_SOURCE
 LIBS = -lm
 
 OBJECTSDIR=obj
 TARGETDIR=bin
 
-OBJECTS = 
+OBJECTS = $(OBJECTSDIR)/network.o
 
 all: clean $(TARGETDIR)/server $(TARGETDIR)/client
 
@@ -17,8 +17,8 @@ $(TARGETDIR)/server: $(TARGETDIR) $(OBJECTS)
 $(TARGETDIR)/client: $(TARGETDIR) $(OBJECTS)
 	$(CC) $(CFLAGS) -o $@ client.c $(OBJECTS)
 
-#$(OBJECTSDIR)/functions.o: $(OBJECTSDIR)
-#	$(CC) $(OFLAGS) -o $@ functions.c $(LIBS)
+$(OBJECTSDIR)/network.o: $(OBJECTSDIR)
+	$(CC) $(OFLAGS) -o $@ network.c $(LIBS)
 
 clean:
 	rm -f \

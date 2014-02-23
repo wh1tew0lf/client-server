@@ -13,7 +13,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include "errmacro.h"
-#include "headers.h"
+#include "network.h"
 
 int server_run = 1;
 
@@ -87,7 +87,7 @@ void server(int port, int tcnt) {
             struct pollfd serv;
             serv.fd = sockfd;
             serv.events = POLLIN;
-            poll_ret = poll(&serv, 1, 3500);
+            poll_ret = poll(&serv, 1, SERVER_POLL_TIMEOUT);
 
             if (-1 == poll_ret) {
                 MY_ERROR1("Poll");
@@ -126,17 +126,20 @@ void *client_thread(void *ptr) {
     struct thread_conf *my_conf = (struct thread_conf *) ptr;
     int sockfd = my_conf->sockfd;
 
-    char buf[256];
+    char buf[DATA_SIZE];
     int rbytes = 0;
-    int status = 1;
-    while(status && ((rbytes = recv(sockfd,(void*) buf, 256, MSG_WAITALL)) == 256)) {
-        switch(buf[0]) {
-        case 0:
-            memset(buf, 0, 256);
-            status = 256 == send(sockfd, (void*) buf, 256, 0);
+    int status = 1; //status of eval command
+    while(status && ((rbytes = recv(sockfd,(void*) buf, DATA_SIZE, MSG_WAITALL)) == DATA_SIZE)) {
+        switch(get_command(buf)) {
+        case C_HEARTBEAT:
+            memset(buf, 0, DATA_SIZE);
+            status = DATA_SIZE == send(sockfd, (void*) buf, DATA_SIZE, 0);
             printf("Get heart beat, status: %d\n", status);
             break;
-                
+        case C_SEND_FILE:
+            status = EXIT_SUCCESS == n_recv_file(RECV_FILENAME, sockfd);
+            break;
+            
         }
     }
     
@@ -148,59 +151,3 @@ void *client_thread(void *ptr) {
     my_conf->status = 0;
     pthread_mutex_unlock(&(my_conf->lock));
 }
-
-/*void *client_thread2(void *ptr) {
-    struct thread_conf *my_conf = (struct thread_conf *) ptr;
-    int sockfd = my_conf->sockfd;
-
-    char filename[] = SEND_FILENAME;
-    
-    off64_t size = -1;
-    FILE *fs = fopen(filename, "r");
-    if (fs != NULL) {
-        fseek(fs, 0L, SEEK_END);
-        size = ftello64(fs);
-        fseek(fs, 0L, SEEK_SET);
-
-        printf("File size: %ld[%ld]\n", size, sizeof(size));
-
-        send(sockfd, &size, sizeof(size), 0);
-        
-        for(;size > 0; size -= MIN(DATA_SIZE, size)) {
-            char buf[DATA_SIZE];
-            memset(buf, 0, DATA_SIZE);
-            unsigned int portion = MIN(DATA_SIZE, size);
-            
-            //printf("Send %d portion of file\n", portion);
-                             
-            if (portion != fread(buf, sizeof(char), portion, fs)) {
-                MY_ERROR1("Can't read portion of file");
-                break;
-            }
-            
-            int rsnd = send(sockfd, (void*) buf, portion, 0);
-            
-            if (portion != rsnd) {
-                MY_ERROR1("Can't send portion of file");
-                break;
-            }
-        }
-    
-        if (fclose(fs)) {
-            MY_ERROR1("Can't send portion of file");
-        }
-    } else {
-        MY_ERROR1("Open file");
-    }
-    
-	if (close(sockfd)) {
-        MY_ERROR1("Close socket");
-    }
-
-    pthread_mutex_lock(&(my_conf->lock));
-    my_conf->status = 0;
-    pthread_mutex_unlock(&(my_conf->lock));
-}*/
-
-
-
