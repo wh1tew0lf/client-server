@@ -81,6 +81,26 @@ void server(int port, int tcnt) {
         }
 
         printf("server waiting for connection\n");
+
+        int poll_ret = 0;
+        while(server_run) {
+            struct pollfd serv;
+            serv.fd = sockfd;
+            serv.events = POLLIN;
+            poll_ret = poll(&serv, 1, 3500);
+
+            if (-1 == poll_ret) {
+                MY_ERROR1("Poll");
+                break;
+            } else if(0 == poll_ret) { //timeout
+                continue;
+            } else {
+                break;
+            }
+        }
+        if ((-1 == poll_ret) || !server_run) {
+            break;
+        }
         
         struct sockaddr_in client_address;
         int client_len = sizeof(client_address);
@@ -103,6 +123,33 @@ void server(int port, int tcnt) {
 }
 
 void *client_thread(void *ptr) {
+    struct thread_conf *my_conf = (struct thread_conf *) ptr;
+    int sockfd = my_conf->sockfd;
+
+    char buf[256];
+    int rbytes = 0;
+    int status = 1;
+    while(status && ((rbytes = recv(sockfd,(void*) buf, 256, MSG_WAITALL)) == 256)) {
+        switch(buf[0]) {
+        case 0:
+            memset(buf, 0, 256);
+            status = 256 == send(sockfd, (void*) buf, 256, 0);
+            printf("Get heart beat, status: %d\n", status);
+            break;
+                
+        }
+    }
+    
+	if (close(sockfd)) {
+        MY_ERROR1("Close socket");
+    }
+
+    pthread_mutex_lock(&(my_conf->lock));
+    my_conf->status = 0;
+    pthread_mutex_unlock(&(my_conf->lock));
+}
+
+/*void *client_thread2(void *ptr) {
     struct thread_conf *my_conf = (struct thread_conf *) ptr;
     int sockfd = my_conf->sockfd;
 
@@ -153,7 +200,7 @@ void *client_thread(void *ptr) {
     pthread_mutex_lock(&(my_conf->lock));
     my_conf->status = 0;
     pthread_mutex_unlock(&(my_conf->lock));
-}
+}*/
 
 
 

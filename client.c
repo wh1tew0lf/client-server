@@ -22,8 +22,47 @@ int main(int argc, char **argv) {
     client(ip, port);
     return EXIT_SUCCESS;
 }
- 
+
 void client(char *ip, int port) {
+    int sockfd = socket (AF_INET, SOCK_STREAM, 0);
+    struct sockaddr_in address;
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr= inet_addr(ip);
+    address.sin_port = htons(port);
+    
+    if (connect(sockfd, (struct sockaddr *) &address, sizeof(address))) {
+        int myerr = errno;
+        printf("Client: Connect: %s [%d]\n", strerror(myerr), myerr);
+        exit(2);
+    }
+
+    char buf[256];
+
+    int i = 0;
+    for(i = 0; i < 10; ++i) {
+        memset(buf, 0, 256);
+        int sbytes = send(sockfd, (void*) buf, 256, 0);
+        if (sbytes != 256) {
+            puts("Send error");
+            break;
+        }
+        printf("Sended %d\n", buf[0]);
+        int rbytes = recv(sockfd,(void*) buf, 256, MSG_WAITALL);
+        if (rbytes != 256) {
+            puts("Recv error");
+            break;
+        }
+        printf("Received %d\n", buf[0]);
+        sleep(3);
+    }
+    
+    if (close(sockfd)) {
+        int myerr = errno;
+        printf("Client: close server socket: %s [%d]\n", strerror(myerr), myerr);
+    }
+}
+ 
+/*void client(char *ip, int port) {
     int sockfd = socket (AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in address;
     address.sin_family = AF_INET;
@@ -82,3 +121,4 @@ void client(char *ip, int port) {
         printf("Client: close server socket: %s [%d]\n", strerror(myerr), myerr);
     }
 }
+*/
